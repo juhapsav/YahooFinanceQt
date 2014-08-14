@@ -13,11 +13,13 @@ TEMPLATE = lib
 
 DEFINES += YAHOOFINANCE_LIBRARY
 
-SOURCES += yahoofinance.cpp
+SOURCES += yahoofinance.cpp \
+    yahoofinancenetworkrequest.cpp
 
 HEADERS += yahoofinance.h\
         yahoofinance_global.h \
-    YahooFinanceDefs.h
+    YahooFinanceDefs.h \
+    yahoofinancenetworkrequest.h
 
 unix:!symbian {
     maemo5 {

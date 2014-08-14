@@ -11,6 +11,8 @@
 #include <QStringList>
 #include "yahoofinance_global.h"
 
+class YahooFinanceNetworkRequest;
+
 /*
  * Provides access to financial data provided by Yahoo Finance
  */
@@ -18,6 +20,7 @@ class YAHOOFINANCESHARED_EXPORT YahooFinance
 {
 public:
     YahooFinance();
+    virtual ~YahooFinance();
 
     enum StockParameter
     {
@@ -115,9 +118,11 @@ public:
      *
      * @param rTickers list of unique stock ticker
      * @param rParameters stock parameters
+     * @param queryInterval query interval
      */
     virtual void query(const QStringList &rTickers,
-                       const QList<YahooFinance::StockParameter> &rParameters);
+                       const QList<YahooFinance::StockParameter> &rParameters,
+                       quint32 queryInterval);
 
 Q_SIGNALS:
 
@@ -163,6 +168,11 @@ private:
      * @brief Holds parameter to Yahoo Finance query strings mappings
      */
     static QMap<StockParameter, QString> msParameterMappings;
+
+    /*
+     * @brief Holds pointers to network requests, pointers are owned
+     */
+    QList<YahooFinanceNetworkRequest *> mNetworkRequests;
 };
 
 #endif // YAHOOFINANCE_H

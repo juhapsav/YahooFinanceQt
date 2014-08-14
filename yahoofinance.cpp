@@ -7,6 +7,7 @@
 #include <QStringList>
 #include <QList>
 #include "yahoofinance.h"
+#include "yahoofinancenetworkrequest.h"
 #include "YahooFinanceDefs.h"
 
 using namespace DwellDone::YahooFinance;
@@ -17,8 +18,14 @@ YahooFinance::YahooFinance()
 {
 }
 
+YahooFinance::~YahooFinance()
+{
+    qDeleteAll(mNetworkRequests);
+}
+
 void YahooFinance::query(const QStringList &rTickers,
-                         const QList<YahooFinance::StockParameter> &rParameters)
+                         const QList<YahooFinance::StockParameter> &rParameters,
+                         quint32 queryInterval)
 {
     if (rTickers.isEmpty() || rParameters.isEmpty())
     {
@@ -31,7 +38,14 @@ void YahooFinance::query(const QStringList &rTickers,
                 convertTickers(rTickers)).arg(convertParameters(rParameters));
     qDebug() << "YahooFinance::query, query string:" << query_string;
 
-    // TODO: HTTP request
+    YahooFinanceNetworkRequest *p_request =
+            new YahooFinanceNetworkRequest(query_string, rParameters, queryInterval);
+
+    // TODO: connect signals
+
+    mNetworkRequests.append(p_request);
+
+    p_request->start();
 }
 
 QString YahooFinance::convertTickers(const QStringList &rTickers)
@@ -53,14 +67,10 @@ QString YahooFinance::convertParameters(const QList<YahooFinance::StockParameter
 {
     QString converted_parameters;
 
-    QMapIterator<YahooFinance::StockParameter, QString> iterator(msParameterMappings);
+    QListIterator<YahooFinance::StockParameter> iterator(rParameters);
     while (iterator.hasNext())
     {
-        iterator.next();
-        if (rParameters.contains(iterator.key()))
-        {
-            converted_parameters.append(iterator.value());
-        }
+        converted_parameters.append(msParameterMappings.value(iterator.next(), QString()));
     }
     qDebug() << "YahooFinance::convertParameters, parameters:" << converted_parameters;
     return converted_parameters;
