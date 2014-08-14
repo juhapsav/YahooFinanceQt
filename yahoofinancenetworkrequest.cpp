@@ -67,16 +67,32 @@ void YahooFinanceNetworkRequest::handleReply(QNetworkReply *pReply)
                     QNetworkRequest::HttpStatusCodeAttribute);
         bool is_error = pReply->error() != QNetworkReply::NoError;
 
-
         qDebug() << "YahooFinanceNetworkRequest::handleReply, HTTP status:"
                  << http_status_code.toString()
                  << ", is error:" << is_error;
         if (!is_error && HTTP_REPLY_CODE_OK == http_status_code.toInt())
         {
-            const QString reply_data(pReply->readAll());
-            qDebug() << "YahooFinanceNetworkRequest::handleReply, success, data:"
-                     << reply_data;
-            // TODO: parse reply data
+            int line_index = 0;
+            while (pReply->canReadLine() && mTickers.count() > line_index)
+            {
+                const QString line(pReply->readLine());
+                const QString ticker = mTickers.at(line_index);
+                const QStringList data = line.simplified().split(",");
+                if (mParameters.count() == data.count())
+                {
+                    QMap<YahooFinance::StockParameter, QString> data_mappings;
+                    for (int value_index = 0; value_index < data.count(); value_index++)
+                    {
+                        const YahooFinance::StockParameter param = mParameters.at(value_index);
+                        const QString value = data.at(value_index);
+                        qDebug() << "ticker:" << ticker << ", param:" << param << ", value:" << value;
+                        data_mappings.insert(param, value);
+                    }
+
+                    emit parametersReceived(ticker, data_mappings);
+                }
+                line_index++;
+            }
         }
         else if (HTTP_REPLY_MOVED_PERMANENTLY == http_status_code)
         {
