@@ -116,9 +116,10 @@ public:
      * @brief Queries stock parameters for specified stock
      * @see parameterReceived
      *
-     * @param rTickers list of unique stock ticker
+     * @param rTickers list of unique stock ticker, NOTE: Yahoo might limit the maximum number
      * @param rParameters stock parameters
-     * @param queryInterval query interval
+     * @param queryInterval query interval, NOTE: too frequent interval might cause Yahoo
+     *        to block this IP address.
      */
     virtual void query(const QStringList &rTickers,
                        const QList<YahooFinance::StockParameter> &rParameters,
@@ -173,6 +174,8 @@ private:
      * @brief Holds pointers to network requests, pointers are owned
      */
     QList<YahooFinanceNetworkRequest *> mNetworkRequests;
+
+
 };
 
 #endif // YAHOOFINANCE_H

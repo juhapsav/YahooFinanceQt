@@ -39,7 +39,8 @@ void YahooFinance::query(const QStringList &rTickers,
     qDebug() << "YahooFinance::query, query string:" << query_string;
 
     YahooFinanceNetworkRequest *p_request =
-            new YahooFinanceNetworkRequest(query_string, rParameters, queryInterval);
+            new YahooFinanceNetworkRequest(query_string, rTickers,
+                                           rParameters, queryInterval);
 
     // TODO: connect signals
 

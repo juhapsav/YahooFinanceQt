@@ -11,7 +11,7 @@ namespace DwellDone
 namespace YahooFinance
 {
 
-const QString YAHOO_FINANCE_QUERY_FORMAT = "http://finance.yahoo.com/d/quotes.csv?s=%1&f=%2";
+const QString YAHOO_FINANCE_QUERY_FORMAT = "http://download.finance.yahoo.com/d/quotes.csv?s=%1&f=%2";
 
 // Pricing
 const QString YAHOO_FINANCE_PROPERTY_ASK_KEY = "a";
