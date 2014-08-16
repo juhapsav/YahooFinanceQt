@@ -21,6 +21,8 @@ HEADERS += yahoofinance.h\
     YahooFinanceDefs.h \
     yahoofinancenetworkrequest.h
 
+MOC
+
 unix:!symbian {
     maemo5 {
         target.path = /opt/usr/lib

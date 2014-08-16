@@ -6,9 +6,12 @@
 #ifndef YAHOOFINANCE_H
 #define YAHOOFINANCE_H
 
+#include <QObject>
 #include <QMap>
 #include <QList>
+#include <QHash>
 #include <QStringList>
+#include <QNetworkAccessManager>
 #include "yahoofinance_global.h"
 
 class YahooFinanceNetworkRequest;
@@ -16,10 +19,12 @@ class YahooFinanceNetworkRequest;
 /*
  * Provides access to financial data provided by Yahoo Finance
  */
-class YAHOOFINANCESHARED_EXPORT YahooFinance
+class YAHOOFINANCESHARED_EXPORT YahooFinance : public QObject
 {
+    Q_OBJECT
+
 public:
-    YahooFinance();
+    explicit YahooFinance(QObject *pParent = 0);
     virtual ~YahooFinance();
 
     enum StockParameter
@@ -118,23 +123,51 @@ public:
      *
      * @param rTickers list of unique stock ticker, NOTE: Yahoo might limit the maximum number
      * @param rParameters stock parameters
-     * @param queryInterval query interval, NOTE: too frequent interval might cause Yahoo
-     *        to block this IP address.
+     * @return query identifier, empty string received if error
      */
-    virtual void query(const QStringList &rTickers,
-                       const QList<YahooFinance::StockParameter> &rParameters,
-                       quint32 queryInterval);
+    virtual QString query(const QStringList &rTickers,
+                       const QList<YahooFinance::StockParameter> &rParameters);
+
+    /*
+     * @brief Starts query with given interval
+     * @see parameterReceived
+     *
+     * @param rQueryIdentifier unique query identifier received from query function
+     * @param interval, query interval in seconds (too frequent interval might cause Yahoo to
+     *        stop respoding)
+     * @return success/failure
+     */
+    virtual bool start(const QString &rQueryIdentifier, quint32 intervalSec);
+
+    /*
+     * @brief Stops query
+     *
+     * @param rQueryIdentifier unique query identifier received from query function
+     * @return success/failure
+     */
+    virtual bool stop(const QString &rQueryIdentifier);
 
 Q_SIGNALS:
 
     /*
      * @brief This signal is emitted when query completed
      *
+     * @param rQueryIdentifier query reporting this parameter
      * @param rTicker list of unique stock ticker
      * @param rData map containing properties as key and corresponding values
      */
-    void parameterReceived(const QString &rTicker,
+    void parameterReceived(const QString &rQueryIdentifier,
+                           const QString &rTicker,
                            const QMap<YahooFinance::StockParameter, QString> &rData);
+
+    /*
+     * @brief Error in query, query will no longer retry automatically. Query will
+     *        retry if start is called again (might lead to another error). Calling
+     *        stop will clear the query completely (suggested but not mandatory).
+     *
+     * @param rQueryIdentifier query reporting this error
+     */
+    void errorOccured(const QString &rQueryIdentifier);
 
 private:
 
@@ -166,16 +199,19 @@ private:
 private:
 
     /*
+     * @brief Network access manager
+     */
+    QScopedPointer<QNetworkAccessManager> mpNetworkManager;
+
+    /*
      * @brief Holds parameter to Yahoo Finance query strings mappings
      */
     static QMap<StockParameter, QString> msParameterMappings;
 
     /*
-     * @brief Holds pointers to network requests, pointers are owned
+     * @brief Maps query identifiers to request handles, pointers are owned
      */
-    QList<YahooFinanceNetworkRequest *> mNetworkRequests;
-
-
+    QHash<QString, YahooFinanceNetworkRequest *> mNetworkRequests;
 };
 
 #endif // YAHOOFINANCE_H

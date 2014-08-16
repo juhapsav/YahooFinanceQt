@@ -4,35 +4,66 @@
 #include <QObject>
 #include <QTimer>
 #include <QScopedPointer>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QUrl>
 #include "yahoofinance.h"
 
 class QNetworkReply;
+class QNetworkAccessManager;
 
 class YahooFinanceNetworkRequest : public QObject
 {
     Q_OBJECT
 public:
     explicit YahooFinanceNetworkRequest(
+            const QString &rQueryIdentifier,
             const QString &rUrl,
             const QStringList &rTickers,
             const QList<YahooFinance::StockParameter> &rParameters,
-            quint32 intervalSec,
+            QNetworkAccessManager &rNetworkManager,
             QObject *parent = 0);
 
     /*
      * @brief Starts sending network request in configured interval
+     *
+     * @param interval for network requests
+     * @return success/failure
      */
-    virtual void start();
+    virtual bool start(quint32 interval);
+
+    /*
+     * @brief Stops sending network requests
+     */
+    virtual void stop();
+
+Q_SIGNALS:
+
+    /*
+     * @brief Signals query results
+     *
+     * @param rQueryIdentifier unique query identifier
+     * @param rTicker unique stock ticker
+     * @param rData map containing received data
+     */
+    void parametersReceived(const QString &rQueryIdentifier,
+                            const QString &rTicker,
+                            const QMap<YahooFinance::StockParameter, QString> &rData);
+
+    /*
+     * @brief Query has failed and will not retry automatically
+     *
+     * @param rQueryIdentifier unique query identifier
+     */
+    void errorOccured(const QString &rQueryIdentifier);
 
 private Q_SLOTS:
 
     /*
      * @brief Sends HTTP request
+     *
+     * @return success/failure
      */
-    void sendRequest();
+    bool sendRequest();
 
     /*
      * @brief Handles network reply
@@ -41,18 +72,19 @@ private Q_SLOTS:
      */
     void handleReply(QNetworkReply *pReply);
 
-Q_SIGNALS:
+private:
 
     /*
-     * @brief Signals query results
-     *
-     * @param rTicker unique stock ticker
-     * @param rData map containing received data
+     * @brief Handles error situation internally and emits errorOccured
      */
-    void parametersReceived(const QString &rTicker,
-                            const QMap<YahooFinance::StockParameter, QString> &rData);
+    void handleError();
 
 private:
+
+    /*
+     * @brief Holds unique query identifier
+     */
+    QString mQueryIdentifier;
 
     /*
      * @brief Holds URL where the network request is sent
@@ -70,14 +102,14 @@ private:
     QList<YahooFinance::StockParameter> mParameters;
 
     /*
+     * @brief Holds reference to network access manager
+     */
+    QNetworkAccessManager &mrNetworkManager;
+
+    /*
      * @brief Timer used to send the request in intervals
      */
     QTimer mTimer;
-
-    /*
-     * @brief Network access manager
-     */
-    QScopedPointer<QNetworkAccessManager> mpNetworkManager;
 
     /*
      * @brief Network reply handle

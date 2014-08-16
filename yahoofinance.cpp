@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QStringList>
 #include <QList>
+#include <QUuid>
 #include "yahoofinance.h"
 #include "yahoofinancenetworkrequest.h"
 #include "YahooFinanceDefs.h"
@@ -14,7 +15,8 @@ using namespace DwellDone::YahooFinance;
 
 QMap<YahooFinance::StockParameter, QString> YahooFinance::msParameterMappings = initMappings();
 
-YahooFinance::YahooFinance()
+YahooFinance::YahooFinance(QObject *pParent) : QObject(pParent),
+    mpNetworkManager(new QNetworkAccessManager)
 {
 }
 
@@ -23,30 +25,57 @@ YahooFinance::~YahooFinance()
     qDeleteAll(mNetworkRequests);
 }
 
-void YahooFinance::query(const QStringList &rTickers,
-                         const QList<YahooFinance::StockParameter> &rParameters,
-                         quint32 queryInterval)
+QString YahooFinance::query(const QStringList &rTickers,
+                         const QList<YahooFinance::StockParameter> &rParameters)
 {
     if (rTickers.isEmpty() || rParameters.isEmpty())
     {
         qDebug() << "YahooFinance::query, tickers or parameters undefined";
-        return;
+        return QString();
     }
 
-    qDebug() << "YahooFinance::query, tickers:" << rTickers;
+    // TODO: check if existing query is already handling the given tickers and parameters
+
+    const QString identifier = QUuid::createUuid().toString();
+
     const QString query_string = YAHOO_FINANCE_QUERY_FORMAT.arg(
                 convertTickers(rTickers)).arg(convertParameters(rParameters));
-    qDebug() << "YahooFinance::query, query string:" << query_string;
 
     YahooFinanceNetworkRequest *p_request =
-            new YahooFinanceNetworkRequest(query_string, rTickers,
-                                           rParameters, queryInterval);
+            new YahooFinanceNetworkRequest(identifier, query_string, rTickers,
+                                           rParameters, *mpNetworkManager);
+    connect(p_request,
+            SIGNAL(parametersReceived(const QString &,
+                                      const QString &,
+                                      const QMap<YahooFinance::StockParameter, QString> &)),
+            SIGNAL(parameterReceived(const QString &,
+                                     const QString &,
+                                     const QMap<YahooFinance::StockParameter, QString> &)));
+    connect(p_request, SIGNAL(errorOccured(const QString &)),
+            SIGNAL(errorOccured(const QString &)));
 
-    // TODO: connect signals
+    mNetworkRequests.insert(identifier, p_request);
+    return identifier;
+}
 
-    mNetworkRequests.append(p_request);
+bool YahooFinance::start(const QString &rQueryIdentifier, quint32 intervalSec)
+{
+    return mNetworkRequests.contains(rQueryIdentifier)
+            ? mNetworkRequests.value(rQueryIdentifier)->start(intervalSec) : false;
+}
 
-    p_request->start();
+bool YahooFinance::stop(const QString &rQueryIdentifier)
+{
+    if (!mNetworkRequests.contains(rQueryIdentifier))
+    {
+        qDebug() << "Unknown query identifier";
+        return false;
+    }
+
+    QScopedPointer<YahooFinanceNetworkRequest> request(
+                mNetworkRequests.take(rQueryIdentifier));
+    request->stop();
+    return true;
 }
 
 QString YahooFinance::convertTickers(const QStringList &rTickers)

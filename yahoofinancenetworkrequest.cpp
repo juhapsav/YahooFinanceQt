@@ -13,43 +13,49 @@ const int HTTP_REPLY_CODE_OK           = 200; // 200 OK
 const int HTTP_REPLY_MOVED_PERMANENTLY = 301; // 301 Moved Permanently
 
 YahooFinanceNetworkRequest::YahooFinanceNetworkRequest(
+        const QString &rQueryIdentifier,
         const QString &rUrl,
         const QStringList &rTickers,
         const QList<YahooFinance::StockParameter> &rParameters,
-        quint32 intervalSec,
+        QNetworkAccessManager &rNetworkManager,
         QObject *parent) : QObject(parent),
+        mQueryIdentifier(rQueryIdentifier),
         mUrl(rUrl),
         mTickers(rTickers),
         mParameters(rParameters),
-        mpNetworkManager(new QNetworkAccessManager)
+        mrNetworkManager(rNetworkManager)
 {
-    qDebug() << "YahooFinanceNetworkRequest::YahooFinanceNetworkRequest, URL:"
-                << rUrl << ", interval:" << intervalSec;
-    mTimer.setInterval(intervalSec * MILLISECONDS_IN_SECOND);
-    mTimer.setSingleShot(false);
-
     connect(&mTimer, SIGNAL(timeout()), SLOT(sendRequest()));
-    connect(mpNetworkManager.data(), SIGNAL(finished(QNetworkReply*)),
+    connect(&mrNetworkManager, SIGNAL(finished(QNetworkReply*)),
             SLOT(handleReply(QNetworkReply*)));
 }
 
-void YahooFinanceNetworkRequest::start()
+bool YahooFinanceNetworkRequest::start(quint32 intervalSec)
 {
-    qDebug() << "YahooFinanceNetworkRequest::start, url:" << mUrl;
-    sendRequest();
-    mTimer.start();
+    qDebug() << "YahooFinanceNetworkRequest::start, url:" << mUrl
+             << ", interval:" << intervalSec;
+    bool request_sent = sendRequest();
+    request_sent ? mTimer.start(intervalSec * MILLISECONDS_IN_SECOND) : mTimer.stop();
+    return request_sent;
 }
 
-void YahooFinanceNetworkRequest::sendRequest()
+void YahooFinanceNetworkRequest::stop()
+{
+    mpNetworkReply.reset();
+    mTimer.stop();
+}
+
+bool YahooFinanceNetworkRequest::sendRequest()
 {
     qDebug() << "YahooFinanceNetworkRequest::sendRequest, url:" << mUrl;
     if (!mUrl.isValid())
     {
         qDebug() << "YahooFinanceNetworkRequest::sendRequest, invalid URL, request not sent";
-        return;
+        return false;
     }
 
-    mpNetworkReply.reset(mpNetworkManager->get(QNetworkRequest(mUrl)));
+    mpNetworkReply.reset(mrNetworkManager.get(QNetworkRequest(mUrl)));
+    return true;
 }
 
 void YahooFinanceNetworkRequest::handleReply(QNetworkReply *pReply)
@@ -89,7 +95,11 @@ void YahooFinanceNetworkRequest::handleReply(QNetworkReply *pReply)
                         data_mappings.insert(param, value);
                     }
 
-                    emit parametersReceived(ticker, data_mappings);
+                    emit parametersReceived(mQueryIdentifier, ticker, data_mappings);
+                }
+                else
+                {
+                    handleError();
                 }
                 line_index++;
             }
@@ -104,7 +114,7 @@ void YahooFinanceNetworkRequest::handleReply(QNetworkReply *pReply)
         }
         else
         {
-            // TODO: handle error
+            handleError();
             qDebug() << "YahooFinanceNetworkRequest::handleReply, ERROR";
         }
 
@@ -115,4 +125,10 @@ void YahooFinanceNetworkRequest::handleReply(QNetworkReply *pReply)
         qDebug() << "YahooFinanceNetworkRequest::handleReply, unknown handle, not handled";
         pReply->deleteLater();
     }
+}
+
+void YahooFinanceNetworkRequest::handleError()
+{
+    stop();
+    emit errorOccured(mQueryIdentifier);
 }
